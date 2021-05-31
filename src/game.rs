@@ -4,6 +4,8 @@ use super::element::Element;
 use super::keymon::key_monitor;
 use super::point::add;
 use super::point::Point;
+use crossterm::event::KeyCode;
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::{cursor, terminal, QueueableCommand};
 use std::collections::VecDeque;
 use std::convert::TryInto;
@@ -23,8 +25,10 @@ pub struct Game {
     game_width: u16,
     game_height: u16,
     score: u16,
+    elongate: u16,
 }
 const HEADER_HEIGHT: u16 = 1;
+const ELONGATE_CONST: u16 = 2;
 
 impl Game {
     pub fn new() -> Self {
@@ -52,6 +56,7 @@ impl Game {
             game_width,
             game_height,
             score: 0,
+            elongate: 0,
         }
     }
     fn clear(&mut self) {
@@ -102,19 +107,24 @@ impl Game {
     }
     fn tick(&mut self) {
         let delta = self.direction.delta();
-        let mut apple_eaten = false;
         let new_head = add(&self.head(), &delta, self.game_width, self.game_height);
         if self.snake.contains(&new_head) {
             self.game_over(false);
         }
         self.snake.push_front(new_head);
         if new_head == self.apple {
-            apple_eaten = true;
-            self.score = self.score + 1;
+            self.elongate += ELONGATE_CONST;
+            loop {
+                self.apple = self.random_point();
+                if !self.snake.contains(&self.apple) {
+                    break;
+                }
+            }
+            self.speed += 1;
+            self.score += 1;
         }
-        if apple_eaten {
-            self.apple = self.random_point();
-            self.speed = self.speed + 1;
+        if self.elongate > 0 {
+            self.elongate -= 1;
         } else {
             self.snake.pop_back();
         }
@@ -123,7 +133,7 @@ impl Game {
         if !quit {
             thread::sleep(Duration::from_millis(1000));
         }
-        crossterm::terminal::disable_raw_mode().unwrap();
+        disable_raw_mode().unwrap();
         self.stdout
             .queue(cursor::MoveTo(0, 0))
             .unwrap()
@@ -137,15 +147,15 @@ impl Game {
         std::process::exit(0);
     }
     pub fn main_loop(&mut self) {
-        let event_queue_mutex: Arc<Mutex<VecDeque<crossterm::event::KeyCode>>> =
-            Arc::new(Mutex::new(VecDeque::<crossterm::event::KeyCode>::new()));
+        let event_queue_mutex: Arc<Mutex<VecDeque<KeyCode>>> =
+            Arc::new(Mutex::new(VecDeque::<KeyCode>::new()));
 
         let event_queue_mutex_clone = Arc::clone(&event_queue_mutex);
         thread::spawn(move || {
             key_monitor(event_queue_mutex_clone);
         });
         self.stdout.queue(cursor::Hide).unwrap();
-        crossterm::terminal::enable_raw_mode().unwrap();
+        enable_raw_mode().unwrap();
         self.clear();
         loop {
             self.draw();
@@ -153,27 +163,27 @@ impl Game {
             let mut q = event_queue_mutex.lock().unwrap();
             if let Some(k) = q.pop_front() {
                 match k {
-                    crossterm::event::KeyCode::Down => {
+                    KeyCode::Down => {
                         if self.direction != Direction::Up {
                             self.direction = Direction::Down
                         }
                     }
-                    crossterm::event::KeyCode::Left => {
+                    KeyCode::Left => {
                         if self.direction != Direction::Right {
                             self.direction = Direction::Left
                         }
                     }
-                    crossterm::event::KeyCode::Right => {
+                    KeyCode::Right => {
                         if self.direction != Direction::Left {
                             self.direction = Direction::Right
                         }
                     }
-                    crossterm::event::KeyCode::Up => {
+                    KeyCode::Up => {
                         if self.direction != Direction::Down {
                             self.direction = Direction::Up
                         }
                     }
-                    crossterm::event::KeyCode::Char('q') => {
+                    KeyCode::Char('q') => {
                         self.game_over(true);
                     }
                     _ => (),
