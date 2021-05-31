@@ -96,9 +96,9 @@ impl Canvas {
                         self.offset_x + x * self.horizontal_mult + h,
                         self.offset_y + *y,
                     ))
-                    .expect("Can not move")
+                    .unwrap()
                     .queue(&styled_element)
-                    .expect("Can not draw");
+                    .unwrap();
             }
         }
         self.save_to_prev();

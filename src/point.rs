@@ -37,7 +37,7 @@ pub fn add(p: &Point, v: &Vector, max_x: u16, max_y: u16) -> Point {
     } else if py >= i32::from(max_y) {
         py = py - i32::from(max_y);
     }
-    let pxx = u16::try_from(px).expect("impossible");
-    let pyy = u16::try_from(py).expect("impossible");
+    let pxx = u16::try_from(px).unwrap();
+    let pyy = u16::try_from(py).unwrap();
     Point::new(pxx, pyy)
 }

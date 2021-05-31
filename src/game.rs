@@ -1,13 +1,14 @@
 use super::canvas::Canvas;
 use super::direction::Direction;
 use super::element::Element;
+use super::keymon::key_monitor;
 use super::point::add;
 use super::point::Point;
-use crossterm::event::read;
 use crossterm::{cursor, terminal, QueueableCommand};
 use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::io::{stdout, Write};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -58,7 +59,7 @@ impl Game {
         self.game_canvas.draw(&mut self.stdout);
         self.header_canvas.clear();
         self.header_canvas.draw(&mut self.stdout);
-        self.stdout.flush().expect("stdout flush error");
+        self.stdout.flush().unwrap();
     }
     fn draw(&mut self) {
         // game
@@ -78,17 +79,17 @@ impl Game {
         let score_string = format!("Score: {}     press q to quit", self.score);
         for (i, c) in score_string.chars().enumerate() {
             self.header_canvas
-                .set(i.try_into().expect("x"), 0, Element::Character(c));
+                .set(i.try_into().unwrap(), 0, Element::Character(c));
         }
         self.header_canvas.draw(&mut self.stdout);
         // flush
-        self.stdout.flush().expect("stdout flush error");
+        self.stdout.flush().unwrap();
     }
     fn head(&self) -> &Point {
-        self.snake.front().expect("There is no snake")
+        self.snake.front().unwrap()
     }
     fn tail(&self) -> &Point {
-        self.snake.back().expect("There is no snake")
+        self.snake.back().unwrap()
     }
     fn random_point_init(width: u16, height: u16) -> Point {
         Point::new(
@@ -122,58 +123,59 @@ impl Game {
         if !quit {
             thread::sleep(Duration::from_millis(1000));
         }
-        crossterm::terminal::disable_raw_mode().expect("Can not disable raw mode");
+        crossterm::terminal::disable_raw_mode().unwrap();
         self.stdout
             .queue(cursor::MoveTo(0, 0))
-            .expect("Can not move")
+            .unwrap()
             .queue(cursor::Show)
-            .expect("Can not show the cursor")
+            .unwrap()
             .queue(terminal::Clear(terminal::ClearType::All))
-            .expect("Can not clear");
+            .unwrap();
         if !quit {
             println!("Game over. Score : {}", self.score);
         }
         std::process::exit(0);
     }
     pub fn main_loop(&mut self) {
-        self.stdout
-            .queue(cursor::Hide)
-            .expect("Can not hide cursor");
-        crossterm::terminal::enable_raw_mode().expect("Can not enable raw mode");
+        let event_queue_mutex: Arc<Mutex<VecDeque<crossterm::event::KeyCode>>> =
+            Arc::new(Mutex::new(VecDeque::<crossterm::event::KeyCode>::new()));
+
+        let event_queue_mutex_clone = Arc::clone(&event_queue_mutex);
+        thread::spawn(move || {
+            key_monitor(event_queue_mutex_clone);
+        });
+        self.stdout.queue(cursor::Hide).unwrap();
+        crossterm::terminal::enable_raw_mode().unwrap();
         self.clear();
         loop {
             self.draw();
-            // thread::sleep(Duration::from_millis());
-            if crossterm::event::poll(Duration::from_millis((400 / self.speed).into()))
-                .expect("Can not poll")
-            {
-                match read().expect("Can not read console input") {
-                    crossterm::event::Event::Key(k) => match k.code {
-                        crossterm::event::KeyCode::Down => {
-                            if self.direction != Direction::Up {
-                                self.direction = Direction::Down
-                            }
+            thread::sleep(Duration::from_millis((400 / self.speed).into()));
+            let mut q = event_queue_mutex.lock().unwrap();
+            if let Some(k) = q.pop_front() {
+                match k {
+                    crossterm::event::KeyCode::Down => {
+                        if self.direction != Direction::Up {
+                            self.direction = Direction::Down
                         }
-                        crossterm::event::KeyCode::Left => {
-                            if self.direction != Direction::Right {
-                                self.direction = Direction::Left
-                            }
+                    }
+                    crossterm::event::KeyCode::Left => {
+                        if self.direction != Direction::Right {
+                            self.direction = Direction::Left
                         }
-                        crossterm::event::KeyCode::Right => {
-                            if self.direction != Direction::Left {
-                                self.direction = Direction::Right
-                            }
+                    }
+                    crossterm::event::KeyCode::Right => {
+                        if self.direction != Direction::Left {
+                            self.direction = Direction::Right
                         }
-                        crossterm::event::KeyCode::Up => {
-                            if self.direction != Direction::Down {
-                                self.direction = Direction::Up
-                            }
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        if self.direction != Direction::Down {
+                            self.direction = Direction::Up
                         }
-                        crossterm::event::KeyCode::Char('q') => {
-                            self.game_over(true);
-                        }
-                        _ => (),
-                    },
+                    }
+                    crossterm::event::KeyCode::Char('q') => {
+                        self.game_over(true);
+                    }
                     _ => (),
                 }
             }

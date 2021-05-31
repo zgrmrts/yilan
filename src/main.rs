@@ -2,6 +2,7 @@ mod canvas;
 mod direction;
 mod element;
 mod game;
+mod keymon;
 mod point;
 
 use game::Game;
