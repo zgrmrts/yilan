@@ -1,5 +1,4 @@
-use std::ops::Add;
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Point {
     pub x: u16,
     pub y: u16,
@@ -22,15 +21,6 @@ impl Vector {
     }
 }
 
-impl Add<Vector> for Point {
-    type Output = Point;
-    fn add(self, other: Vector) -> Self {
-        Self {
-            x: (self.x as i32 + other.x as i32) as u16,
-            y: (self.y as i32 + other.y as i32) as u16,
-        }
-    }
-}
 use std::convert::TryFrom;
 pub fn add(p: &Point, v: &Vector, max_x: u16, max_y: u16) -> Point {
     let mut px = i32::from(p.x);
@@ -50,16 +40,4 @@ pub fn add(p: &Point, v: &Vector, max_x: u16, max_y: u16) -> Point {
     let pxx = u16::try_from(px).expect("impossible");
     let pyy = u16::try_from(py).expect("impossible");
     Point::new(pxx, pyy)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn point_vector_addition() {
-        let p = Point::new(15, 16);
-        let v = Vector::new(-1, 1);
-        let q = p + v;
-        assert_eq!(q, Point::new(14, 17));
-    }
 }

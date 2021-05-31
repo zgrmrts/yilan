@@ -22,8 +22,6 @@ mod test {
     use super::*;
     #[test]
     fn test_direction() {
-        let dir = Direction::Right;
-        eprintln!("{:?} {:?}", dir, dir.delta());
-        assert_eq!(dir.delta(), Vector::new(1, 0));
+        assert_eq!(Direction::Right.delta(), Vector::new(1, 0));
     }
 }

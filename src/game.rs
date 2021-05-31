@@ -3,16 +3,10 @@ use super::direction::Direction;
 use super::element::Element;
 use super::point::add;
 use super::point::Point;
+use crossterm::event::read;
+use crossterm::{cursor, terminal, QueueableCommand};
 use std::collections::VecDeque;
 use std::convert::TryInto;
-
-extern crate crossterm;
-use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::{
-    cursor,
-    style::{self, Color, Colorize, Print, SetBackgroundColor, SetForegroundColor},
-    terminal, QueueableCommand, Result,
-};
 use std::io::{stdout, Write};
 use std::thread;
 use std::time::Duration;
@@ -22,20 +16,22 @@ pub struct Game {
     direction: Direction,
     speed: u16,
     apple: Point,
-    can: Canvas,
+    game_canvas: Canvas,
+    header_canvas: Canvas,
     stdout: std::io::Stdout,
     game_width: u16,
     game_height: u16,
     score: u16,
 }
+const HEADER_HEIGHT: u16 = 1;
+
 impl Game {
     pub fn new() -> Self {
         let (width, height) = terminal::size().unwrap();
-        let game_height = height - 1;
+        let game_height = height - HEADER_HEIGHT;
         let game_width = width / 2;
-        let can = Canvas::new(game_width, height);
-        drop(width);
-        drop(height);
+        let game_canvas = Canvas::new(0, HEADER_HEIGHT, game_width, game_height, 2);
+        let header_canvas = Canvas::new(0, 0, width, HEADER_HEIGHT, 1);
         let stdout = stdout();
         let mut snake = VecDeque::new();
         let delta = Direction::Down.delta();
@@ -49,7 +45,8 @@ impl Game {
             direction: Direction::Up,
             speed: 5u16,
             apple: Game::random_point_init(game_width, game_height),
-            can,
+            game_canvas,
+            header_canvas,
             stdout,
             game_width,
             game_height,
@@ -57,36 +54,41 @@ impl Game {
         }
     }
     fn clear(&mut self) {
-        self.can.clear();
-        self.can.draw(&mut self.stdout);
+        self.game_canvas.clear();
+        self.game_canvas.draw(&mut self.stdout);
+        self.header_canvas.clear();
+        self.header_canvas.draw(&mut self.stdout);
         self.stdout.flush().expect("stdout flush error");
     }
     fn draw(&mut self) {
-        self.can.clear();
-        for i in 0..self.game_width {
-            self.can.set(i, 0, Element::Header);
+        // game
+        self.game_canvas.clear();
+        for Point { x, y } in self.snake.iter() {
+            self.game_canvas.set(*x, *y, Element::SnakeBody);
         }
-        let score_string = format!("Score: {}   press q to quit", self.score);
+        self.game_canvas
+            .set(self.apple.x, self.apple.y, Element::Apple);
+        self.game_canvas
+            .set(self.head().x, self.head().y, Element::SnakeHead);
+        self.game_canvas
+            .set(self.tail().x, self.tail().y, Element::SnakeTail);
+        let _count = self.game_canvas.draw(&mut self.stdout);
+        // header
+        self.header_canvas.clear();
+        let score_string = format!("Score: {}     press q to quit", self.score);
         for (i, c) in score_string.chars().enumerate() {
-            self.can
+            self.header_canvas
                 .set(i.try_into().expect("x"), 0, Element::Character(c));
         }
-        for Point { x, y } in self.snake.iter() {
-            self.can.set(*x, *y + 1, Element::SnakeBody);
-        }
-        self.can.set(self.apple.x, self.apple.y + 1, Element::Apple);
-        self.can
-            .set(self.head().x, self.head().y + 1, Element::SnakeHead);
-        self.can
-            .set(self.tail().x, self.tail().y + 1, Element::SnakeTail);
-        self.can.draw(&mut self.stdout);
+        self.header_canvas.draw(&mut self.stdout);
+        // flush
         self.stdout.flush().expect("stdout flush error");
     }
-    fn head(&self) -> Point {
-        self.snake[0]
+    fn head(&self) -> &Point {
+        self.snake.front().expect("There is no snake")
     }
-    fn tail(&self) -> Point {
-        self.snake[self.snake.len() - 1]
+    fn tail(&self) -> &Point {
+        self.snake.back().expect("There is no snake")
     }
     fn random_point_init(width: u16, height: u16) -> Point {
         Point::new(

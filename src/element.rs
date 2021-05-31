@@ -6,6 +6,5 @@ pub enum Element {
     Apple,
     Empty,
     Character(char),
-    Header,
     Invalid,
 }
