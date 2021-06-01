@@ -15,6 +15,14 @@ impl Direction {
             Direction::Right => Vector::new(1, 0),
         }
     }
+    pub fn inverse(&self) -> Self {
+        match self {
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        }
+    }
 }
 
 #[cfg(test)]

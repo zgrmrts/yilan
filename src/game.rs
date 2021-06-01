@@ -161,35 +161,30 @@ impl Game {
             self.draw();
             thread::sleep(Duration::from_millis((400 / self.speed).into()));
             let mut q = event_queue_mutex.lock().unwrap();
-            if let Some(k) = q.pop_front() {
-                match k {
-                    KeyCode::Down => {
-                        if self.direction != Direction::Up {
-                            self.direction = Direction::Down
+            loop {
+                if let Some(k) = q.pop_front() {
+                    if let Some(d) = Game::keycode_to_direction(&k) {
+                        if d == self.direction.inverse() {
+                            continue;
                         }
-                    }
-                    KeyCode::Left => {
-                        if self.direction != Direction::Right {
-                            self.direction = Direction::Left
-                        }
-                    }
-                    KeyCode::Right => {
-                        if self.direction != Direction::Left {
-                            self.direction = Direction::Right
-                        }
-                    }
-                    KeyCode::Up => {
-                        if self.direction != Direction::Down {
-                            self.direction = Direction::Up
-                        }
-                    }
-                    KeyCode::Char('q') => {
+                        self.direction = d;
+                        break;
+                    } else if let KeyCode::Char('q') = k {
                         self.game_over(true);
                     }
-                    _ => (),
                 }
+                break;
             }
             self.tick();
+        }
+    }
+    fn keycode_to_direction(k: &KeyCode) -> Option<Direction> {
+        match k {
+            KeyCode::Down => Some(Direction::Down),
+            KeyCode::Left => Some(Direction::Left),
+            KeyCode::Right => Some(Direction::Right),
+            KeyCode::Up => Some(Direction::Up),
+            _ => None,
         }
     }
 }
