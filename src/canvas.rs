@@ -1,7 +1,8 @@
 use super::element::Element;
 use super::point::Point;
 use crossterm::cursor;
-use crossterm::style::{self, Colorize};
+use crossterm::style;
+use crossterm::style::Stylize;
 use crossterm::QueueableCommand;
 use std::io::Stdout;
 
